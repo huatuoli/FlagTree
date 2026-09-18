@@ -1,8 +1,0 @@
-flagcxDevCommGetIntraRank
-flagcxDevCommGetIntraSize
-flagcxDevCommGetRank
-flagcxDevCommGetSize
-flagcxGetIntraPointerC
-flagcxIntraBarrierArriveS
-flagcxIntraBarrierSyncS
-flagcxIntraBarrierWaitS

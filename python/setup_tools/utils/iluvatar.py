@@ -36,7 +36,6 @@ OPS_PACKAGE = "triton.ops"
 __all__ = ["handle_flagcx", "relocate_flagcx"]
 
 _FLAGCX_RELATIVE_PATH = os.path.join("iluvatar", "tle", "third_party", "flagcx")
-_FLAGCX_DEFAULT_DEV_API_BACKEND = "flagcx/adaptor/device_api/default_dev_api_backend.cc"
 
 
 def relocate_flagcx(*args, **kwargs):
@@ -214,30 +213,27 @@ class IluvatarFlagCXRegistrar(FlagCXRegistrar):
             setattr(self, f"{lib_name.split('.')[0]}_cache_path", self.cache_lib_dir / lib_name)
 
     def get_compile_cmds(self):
-        adapter_dir = Path(self.flagtree_dir) / "third_party" / "iluvatar" / "flagcx_device"
-        if not adapter_dir.is_dir():
-            raise FileNotFoundError(f"Iluvatar FlagCX device adapter not found: {adapter_dir}")
+        device_dir = Path(self.flagcx_src_dir) / "bindings" / "ir" / "iluvatar"
+        if not device_dir.is_dir():
+            raise FileNotFoundError(f"FlagCX Iluvatar device IR build entry not found: {device_dir}. "
+                                    "The pinned FlagCX revision must provide bindings/ir/iluvatar.")
 
-        device_cmd = [
-            "make",
-            "-C",
-            str(adapter_dir),
-            f"FLAGCX_ROOT={self.flagcx_src_dir}",
-            f"ILUVATAR_ARCH={self.iluvatar_arch}",
-        ]
         sdk_path, clang_path, ccl_path = _resolve_flagcx_toolchain()
         if not sdk_path or not clang_path:
             raise RuntimeError("Unable to locate the Iluvatar CoreX SDK and clang. "
                                "Set FLAGCX_ILUVATAR_SDK/FLAGCX_ILUVATAR_CLANG or expose "
                                "the CoreX toolchain through LLVM_SYSPATH/PATH.")
-        device_cmd.extend((f"ILUVATAR_SDK={sdk_path}", f"COREX_CLANG={clang_path}"))
 
-        host_cmd = ["make", "USE_ILUVATAR_COREX=1", "-j", str(os.cpu_count())]
-        # flagcx_device.cc dispatches through devApiBackend, which only exists if a
-        # device API backend source is linked in. FlagCX's iluvatar_corex.mk leaves
-        # PLATFORM_EXTRA_SRCS empty, so request the default backend explicitly.
-        # Ignored by FlagCX revisions that predate the device API backends.
-        host_cmd.append(f"PLATFORM_EXTRA_SRCS={_FLAGCX_DEFAULT_DEV_API_BACKEND}")
+        device_cmd = [
+            "make",
+            "-C",
+            str(device_dir),
+            f"ILUVATAR_ARCH={self.iluvatar_arch}",
+            f"DEVICE_HOME={sdk_path}",
+            f"COREX_CLANG={clang_path}",
+        ]
+
+        host_cmd = ["make", "USE_ILUVATAR=1", "-j", str(os.cpu_count())]
         host_cmd.append(f"DEVICE_HOME={sdk_path}")
         if ccl_path:
             host_cmd.append(f"CCL_HOME={ccl_path}")
